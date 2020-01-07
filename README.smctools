@@ -1,0 +1,115 @@
+SMC Tools (1.2.0)
+===================
+
+The SMC Tools provided in this package allow execution of existing TCP
+applications over RoCE network without need to make changes in them.
+In addition tools are provided to display SMC socket information.
+
+This package consists of the tools:
+
+- libsmc-preload.so : preload library.
+- smc_run           : preload library environment setup script.
+- smc_pnet          : C program for PNET Table handling
+- smcss             : C program for displaying the information about active
+                      SMC sockets.
+- smc_rnics         : List available RDMA NICs
+
+The preload shared library libsmc-preload.so provides mapping of TCP socket
+operations to SMC sockets.
+The environment setup script smc_run sets up the preload environment
+for the libsmc-preload.so shared library before starting application.
+The smcss program is used to gather and display information about the
+SMC sockets.
+The smc_pnet program is used to create, destroy, and change the SMC-R PNET
+table.
+
+In addition the package contains the AF_SMC manpage ("man af_smc").
+
+
+Bug Reports
+===========
+See section 'Code Contributions'.
+
+
+Code Contributions
+==================
+Code contributions will not be accepted for smctools.
+Therefore, please do not send DIFFs or code-snippets. Thank you!
+If you want to report bugs or suggest enhancements, please contact:
+   linux390@de.ibm.com
+and put "[smctools]" as the first word in the subject line of your mail.
+For bug reports, at a minimum describe the scenario with instructions on how
+to reproduce.
+For enhancements, please describe the proposed change and its benefits.
+
+
+Release History:
+================
+
+1.2.0 (2019-02-08)
+    Changes:
+    - smc_rnics: Initial version added
+    - smc_dbg: Initial version added
+
+Bug fixes:
+    - smcss: Parse address family of ip address
+
+1.1.0 (2018-06-29)
+    Changes:
+    - smcss:    Add IPv6 support
+    - preload:  Add IPv6 support
+    - smcss:    Output format changed
+    - preload:  Rename preload library into libsmc-preload.so
+    - Makefile: Improve distro compatibility
+    - Makefile: Add SONAME to shared libraries
+    - Makefile: Do not strip binaries on install
+    - Makefile: Use LDFLAGS to allow addition of externally set link flags
+    - libsmc..: Remove hardcoded reference to libc
+    - Manpages: Formatting changes
+
+    Bug fixes:
+    - Makefile: Fix target 'install' dependencies
+    - smcss:    Fix "--version" output
+    - smc_pnet: Fix "--version" output
+    - smc_run:	Append preload library to LD_PRELOAD instead of potentially
+                overwriting pre-set values
+    - preload:  Set suid flag to work with suid executables
+
+1.0.0 (2017-02-13)
+    The initial version
+
+
+Parts:
+======
+
+The SMC Tools package includes the following files:
+
+Makefile		smctools Makefile
+smc-preload.c		libsmc-preload.so, SMC preload library source code
+smc_run			SMC preload library environment setup script
+smc_pnet.c		PNET Table handling source code
+smcss.c			SMC socket display source code
+smctools_common.h	common definitions for smctools
+smc.h			include file from kernel include/uapi/linux/smc.h
+smc_diag.h		include file from kernel include/uapi/linux/smc_diag.h
+af_smc.7		manpage for AF_SMC sockets
+smc_pnet.8		manpage for smc_pnet
+smcss.8			manpage for smcss
+smc_run.8		manpage for preload library usage
+smc_dbg			collect debugging data
+
+
+Requirements:
+=============
+
+- To compile and run applications over a RoCE network, PCI support,
+  Mellanox Connect-X device support, Infiniband, and SMC support, must be
+  enabled in the kernel.
+- To run the applications over a RoCE network, the RoCE network must be
+  properly configured.
+
+Copyright IBM Corp. 2016, 2017
+
+THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THE ENCLOSED ECLIPSE
+PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION OF THE
+PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
