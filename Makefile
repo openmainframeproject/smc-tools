@@ -1,3 +1,4 @@
+
 #
 # SMC Tools - Shared Memory Communication Tools
 #
@@ -9,7 +10,7 @@
 # http://www.eclipse.org/legal/epl-v10.html
 #
 
-SMC_TOOLS_RELEASE = 1.2.0
+SMC_TOOLS_RELEASE = 1.3.1
 VER_MAJOR         = $(shell echo $(SMC_TOOLS_RELEASE) | cut -d '.' -f 1)
 
 ARCHTYPE = $(shell uname -m)
@@ -29,6 +30,7 @@ DESTDIR          ?=
 PREFIX            = /usr
 BINDIR		  = ${PREFIX}/bin
 MANDIR		  = ${PREFIX}/share/man
+BASH_AUTODIR	  = $(shell pkg-config --variable=completionsdir bash-completion 2>/dev/null)
 OWNER		  = $(shell id -un)
 GROUP		  = $(shell id -gn)
 INSTALL_FLAGS_BIN = -g $(GROUP) -o $(OWNER) -m755
@@ -41,7 +43,7 @@ STUFF_32BIT	  = 0
 #
 ifeq ($(ARCH),64)
 ifeq ($(DISTRO),Ubuntu)
-LIBDIR		= ${PREFIX}/lib/s390x-linux-gnu
+LIBDIR		= ${PREFIX}/lib/${ARCHTYPE}-linux-gnu
 else
 LIBDIR		= ${PREFIX}/lib64
 endif
@@ -100,42 +102,67 @@ SMC_PNET_CFLAGS = -I /usr/include/libnl3
 SMC_PNET_LFLAGS = -lnl-genl-3 -lnl-3
 endif
 
-smc_pnet: smc_pnet.c smc.h smctools_common.h
+smc_pnet: smc_pnet.c smctools_common.h
 	@if [ ! -e /usr/include/libnl3/netlink/netlink.h ]; then \
 		printf "**************************************************************\n" >&2; \
 		printf "* Missing build requirement for: %-45s\n" $@ >&2; \
 		printf "* Install package..............: %-45s\n" "devel package for libnl3" >&2; \
 		printf "* Install package..............: %-45s\n" "devel package for libnl3-genl" >&2; \
 		printf "* NOTE: Package names might differ by platform\n" >&2; \
+		printf "*       On Ubuntu try libnl-3-dev and libnl-genl-3-dev\n" >&2; \
 		printf "**************************************************************\n" >&2; \
 		exit 1; \
 	fi
 	${CCC} ${ALL_CFLAGS} ${SMC_PNET_CFLAGS} ${LDFLAGS} -o $@ $< ${SMC_PNET_LFLAGS}
 
-smcss: smcss.c smc_diag.h smctools_common.h
+smcss: smcss.c smctools_common.h
 	${CCC} ${ALL_CFLAGS} ${LDFLAGS} $< -o $@
 
 install: all
 	echo "  INSTALL"
-	install -d -m755 $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man7 $(DESTDIR)$(MANDIR)/man8
+	install -d -m755 $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR) $(DESTDIR)$(MANDIR)/man7 \
+	                 $(DESTDIR)$(BASH_AUTODIR) $(DESTDIR)$(MANDIR)/man8
 	install $(INSTALL_FLAGS_LIB) libsmc-preload.so $(DESTDIR)$(LIBDIR)
-ifeq ($(STUFF_32BIT),1)
-	install -d -m755 $(DESTDIR)$(LIBDIR32)
-	install $(INSTALL_FLAGS_LIB) libsmc-preload32.so $(DESTDIR)$(LIBDIR32)/libsmc-preload.so
-endif
+#ifeq ($(STUFF_32BIT),1)
+#	install -d -m755 $(DESTDIR)$(LIBDIR32)
+#	install $(INSTALL_FLAGS_LIB) libsmc-preload32.so $(DESTDIR)$(LIBDIR32)/libsmc-preload.so
+#endif
 	install $(INSTALL_FLAGS_BIN) smc_run $(DESTDIR)$(BINDIR)
 	install $(INSTALL_FLAGS_BIN) smcss $(DESTDIR)$(BINDIR)
 	install $(INSTALL_FLAGS_BIN) smc_pnet $(DESTDIR)$(BINDIR)
 	install $(INSTALL_FLAGS_BIN) smc_dbg $(DESTDIR)$(BINDIR)
 ifeq ($(shell uname -m | cut -c1-4),s390)
 	install $(INSTALL_FLAGS_BIN) smc_rnics $(DESTDIR)$(BINDIR)
+	install $(INSTALL_FLAGS_MAN) smc_rnics.8 $(DESTDIR)$(MANDIR)/man8
 endif
 	install $(INSTALL_FLAGS_MAN) af_smc.7 $(DESTDIR)$(MANDIR)/man7
 	install $(INSTALL_FLAGS_MAN) smc_run.8 $(DESTDIR)$(MANDIR)/man8
-	install $(INSTALL_FLAGS_MAN) smc_rnics.8 $(DESTDIR)$(MANDIR)/man8
 	install $(INSTALL_FLAGS_MAN) smc_pnet.8 $(DESTDIR)$(MANDIR)/man8
 	install $(INSTALL_FLAGS_MAN) smcss.8 $(DESTDIR)$(MANDIR)/man8
+ifneq ($(BASH_AUTODIR),)
+	install $(INSTALL_FLAGS_MAN) smc-tools.autocomplete $(DESTDIR)$(BASH_AUTODIR)/smc-tools
+	ln -sfr $(DESTDIR)$(BASH_AUTODIR)/smc-tools $(DESTDIR)$(BASH_AUTODIR)/smc_rnics
+	ln -sfr $(DESTDIR)$(BASH_AUTODIR)/smc-tools $(DESTDIR)$(BASH_AUTODIR)/smc_dbg
+	ln -sfr $(DESTDIR)$(BASH_AUTODIR)/smc-tools $(DESTDIR)$(BASH_AUTODIR)/smcss
+	ln -sfr $(DESTDIR)$(BASH_AUTODIR)/smc-tools $(DESTDIR)$(BASH_AUTODIR)/smc_pnet
+endif
 
+check:
+	if which cppcheck >/dev/null; then \
+	    echo "Running cppcheck"; \
+	    cppcheck . 2>&1; \
+	else \
+	    echo "cppcheck not available"; \
+	fi
+	@echo;
+	if which valgrind >/dev/null; then \
+	    echo "Running valgrind"; \
+	    valgrind --leak-check=full --show-leak-kinds=all ./smcss 2>&1; \
+	    valgrind --leak-check=full --show-leak-kinds=all ./smc_pnet 2>&1; \
+	else \
+	    echo "valgrind not available"; \
+	fi
+	@echo;
 clean:
 	echo "  CLEAN"
 	rm -f *.o *.so smcss smc_pnet

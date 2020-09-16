@@ -48,8 +48,12 @@ Display a brief
 .B smc_rnics
 usage information.
 .TP
+.BR "\-I, \-\-IB-dev"
+Display IB device information.
+.TP
 .BR "\-r, \-\-rawids"
-Display raw PCI vendor and device codes in column
+Display raw PCI vendor and device codes in column. Note that this will
+also toggle display of non-networking realted devices.
 .I Type
 . .
 .TP
@@ -66,25 +70,32 @@ Indicates whether the PCI slot is on (1) or off (0). See option
 .B -d
 on how to enable a device that is offline.
 
-.SS "PCI ID"
+.SS "PCI_ID"
 PCI ID in BDF (Bus:Device.Function) notation.
 
 .SS "PCHID"
-Physical channel identifier.
+Physical channel identifier, or virtual channel identifier (VCHID) for
+ISM devices.
 
 .SS "Type"
 Device type in human readable form. See option
 .B -r
 to switch to display of PCI vendor and device instead.
 
-.SS "Port"
-Corresponding port of an RNIC, if applicable.
+.SS "PPrt"
+Corresponding physical port of an RNIC, if applicable. Starts counting at 0.
 
-.SS "PNET ID"
+.SS "IPrt"
+Corresponding Infiniband port of an RNIC, if applicable. Starts counting at 1.
+
+.SS "PNET_ID"
 Physical network ID, if defined in IOCDS.
 
-.SS "Interface"
+.SS "Net-Dev"
 Network interface in Linux, if applicable.
+
+.SS "IB-Dev"
+Infiniband interface in Linux, if applicable.
 
 
 .SH RETURN CODES

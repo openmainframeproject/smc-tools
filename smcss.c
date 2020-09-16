@@ -30,7 +30,6 @@
 #include <arpa/inet.h>
 
 #include "smctools_common.h"
-#include "smc_diag.h"
 
 #define MAGIC_SEQ 123456
 #define ADDR_LEN_SHORT	23
@@ -253,8 +252,7 @@ static void parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta,
 static void addr_format(char *buf, size_t buf_len, size_t short_len,
 			__be32 addr[4], int port)
 {
-	char *errmsg = "(inet_ntop error)"; /* very unlikely */
-	char addr_buf[64], port_buf[16];
+	char addr_buf[INET6_ADDRSTRLEN + 1], port_buf[16];
 	int addr_len, port_len;
 	int af;
 
@@ -272,22 +270,33 @@ static void addr_format(char *buf, size_t buf_len, size_t short_len,
 	else
 		af = AF_INET6;
 
+	if (buf_len < 20)
+		return; /* no space for errmsg */
+
 	if (!inet_ntop(af, addr, addr_buf, sizeof(addr_buf))) {
-		strcpy(buf, errmsg);
+		strcpy(buf, "(inet_ntop error)");
 		return;
 	}
 	sprintf(port_buf, "%d", port);
 	addr_len = strlen(addr_buf);
 	port_len = strlen(port_buf);
 	if (!show_wide && (addr_len + 1 + port_len > short_len)) {
+		if (buf_len < short_len + 1) {
+			strcpy(buf, "(buf to small)");
+			return;
+		}
 		/* truncate addr string */
 		addr_len = short_len - 1 - port_len - 2;
 		strncpy(buf, addr_buf, addr_len);
 		buf[addr_len] = '\0';
 		strcat(buf, ".."); /* indicate truncation */
 		strcat(buf, ":");
-		strncat(buf, port_buf, port_len);
+		strcat(buf, port_buf);
 	} else {
+		if (buf_len < addr_len + 1 + port_len + 1) {
+			strcpy(buf, "(buf to small)");
+			return;
+		}
 		snprintf(buf, buf_len, "%s:%s", addr_buf, port_buf);
 	}
 }
@@ -331,6 +340,9 @@ static void show_one_smc_sock(struct nlmsghdr *nlh)
 		    r->id.idiag_dst, ntohs(r->id.idiag_dport));
 	printf("%-*s ", (int)MAX(ADDR_LEN_SHORT, strlen(txtbuf)), txtbuf);
 	printf("%04x ", r->id.idiag_if);
+	if (r->diag_state == 7)			/* CLOSED state */
+		goto newline;
+	
 	if (r->diag_mode == SMC_DIAG_MODE_FALLBACK_TCP) {
 		printf("TCP ");
 		/* when available print local and peer fallback reason code */
@@ -421,6 +433,7 @@ newline:
 
 static int rtnl_dump(struct rtnl_handle *rth)
 {
+	int msglen, found_done = 0;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
 	struct msghdr msg = {
@@ -430,7 +443,6 @@ static int rtnl_dump(struct rtnl_handle *rth)
 		.msg_iovlen = 1,
 	};
 	char buf[32768];
-	int msglen;
 	struct nlmsghdr *h = (struct nlmsghdr *)buf;
 
 	memset(buf, 0, sizeof(buf));
@@ -453,8 +465,10 @@ again:
 	while(NLMSG_OK(h, msglen)) {
 		if (h->nlmsg_flags & NLM_F_DUMP_INTR)
 			fprintf(stderr, "Dump interrupted\n");
-		if (h->nlmsg_type == NLMSG_DONE)
-			break; /* process next */
+		if (h->nlmsg_type == NLMSG_DONE) {
+			found_done = 1;
+			break;
+		}
 		if (h->nlmsg_type == NLMSG_ERROR) {
 			if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
 				fprintf(stderr, "ERROR truncated\n");
@@ -468,6 +482,10 @@ again:
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
 		fprintf(stderr, "Message truncated\n");
+		goto again;
+	}
+	if (!found_done) {
+		h = (struct nlmsghdr *)buf;
 		goto again;
 	}
 	return EXIT_SUCCESS;
